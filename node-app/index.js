@@ -7,44 +7,46 @@ const app = express();
 const PORT = 3000;
 const NOTES_DIR = path.join(__dirname, 'notes');
 
+app.set('view engine', 'ejs');
+app.set('views', path.join(__dirname, 'views'));
+
+app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
-// Générateur d'ID unique simple
-function generateId(length = 8) {
-  return crypto.randomBytes(length).toString('hex').slice(0, length);
-}
-
-// Créer le dossier 'notes' s’il n’existe pas
 if (!fs.existsSync(NOTES_DIR)) {
   fs.mkdirSync(NOTES_DIR);
 }
 
-// POST /notes - crée une nouvelle note
+// Page d'accueil avec formulaire
+app.get('/', (req, res) => {
+  res.render('index');
+});
+
+// Création de note depuis le formulaire
 app.post('/notes', (req, res) => {
   const { content } = req.body;
-  if (!content) return res.status(400).json({ error: 'Contenu requis.' });
+  if (!content) return res.status(400).send('Contenu requis.');
 
-  const id = generateId(); // identifiant unique court
+  const id = crypto.randomBytes(8).toString('hex').slice(0, 8);
   const filePath = path.join(NOTES_DIR, `${id}.txt`);
 
   fs.writeFile(filePath, content, (err) => {
-    if (err) return res.status(500).json({ error: 'Erreur d\'écriture.' });
-
-    res.json({ id, link: `/notes/${id}` });
+    if (err) return res.status(500).send('Erreur lors de la sauvegarde.');
+    res.redirect(`/notes/${id}`);
   });
 });
 
-// GET /notes/:id - lit une note existante
+// Lecture de note en HTML
 app.get('/notes/:id', (req, res) => {
   const filePath = path.join(NOTES_DIR, `${req.params.id}.txt`);
 
   fs.readFile(filePath, 'utf8', (err, data) => {
-    if (err) return res.status(404).json({ error: 'Note non trouvée.' });
+    if (err) return res.status(404).send('Note non trouvée.');
 
-    res.send(data);
+    res.render('note', { id: req.params.id, content: data });
   });
 });
 
 app.listen(PORT, () => {
-  console.log(`✅ Serveur démarré sur http://localhost:${PORT}`);
+  console.log(`✅ Serveur dispo sur http://localhost:${PORT}`);
 });

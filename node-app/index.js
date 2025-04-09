@@ -24,32 +24,36 @@ app.get('/', (req, res) => {
 
 // Création de note depuis le formulaire
 app.post('/notes', (req, res) => {
-  const { content, expiration } = req.body;
-  if (!content) return res.status(400).send('Contenu requis.');
+    const { content, expiration } = req.body;  // expiration est en heures
+    if (!content) return res.status(400).send('Contenu requis.');
+  
+    const id = crypto.randomBytes(8).toString('hex').slice(0, 8); // Identifiant unique via crypto
+    const filePath = path.join(NOTES_DIR, `${id}.txt`);
+    const metaFilePath = path.join(NOTES_DIR, `${id}.meta`);
+  
+    // Si l'expiration n'est pas fournie, par défaut on met 24h (en millisecondes)
+    const expirationTimeInMs = expiration ? expiration * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
+  
+    if (expiration && expiration > 24) {
+        expirationTimeInMs = 24 * 60 * 60 * 1000;
+      }    
 
-  const id = crypto.randomBytes(8).toString('hex').slice(0, 8); // Identifiant unique via crypto
-  const filePath = path.join(NOTES_DIR, `${id}.txt`);
-  const metaFilePath = path.join(NOTES_DIR, `${id}.meta`);
-
-  // Si l'expiration n'est pas fournie, par défaut on met 24h
-  const expirationTimeInMs = expiration ? expiration * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
-
-  const createdAt = new Date().toISOString();
-  const expirationTime = new Date(new Date().getTime() + expirationTimeInMs);
-
-  // Créer le fichier de la note
-  fs.writeFile(filePath, content, (err) => {
-    if (err) return res.status(500).send('Erreur lors de la sauvegarde.');
-
-    // Créer le fichier .meta avec les informations de date de création et d'expiration
-    const metaData = { createdAt, expirationTime };
-    fs.writeFile(metaFilePath, JSON.stringify(metaData), (err) => {
-      if (err) return res.status(500).send('Erreur lors de la sauvegarde du fichier .meta.');
-
-      res.redirect(`/notes/${id}`);
+    const createdAt = new Date().toISOString();
+    const expirationTime = new Date(new Date().getTime() + expirationTimeInMs);
+  
+    // Créer le fichier de la note
+    fs.writeFile(filePath, content, (err) => {
+      if (err) return res.status(500).send('Erreur lors de la sauvegarde.');
+  
+      // Créer le fichier .meta avec les informations de date de création et d'expiration
+      const metaData = { createdAt, expirationTime };
+      fs.writeFile(metaFilePath, JSON.stringify(metaData), (err) => {
+        if (err) return res.status(500).send('Erreur lors de la sauvegarde du fichier .meta.');
+  
+        res.redirect(`/notes/${id}`);
+      });
     });
   });
-});
 
 // Lecture de note en HTML
 app.get('/notes/:id', (req, res) => {

@@ -1,13 +1,18 @@
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
-const { nanoid } = require('nanoid');
+const crypto = require('crypto');
 
 const app = express();
 const PORT = 3000;
 const NOTES_DIR = path.join(__dirname, 'notes');
 
 app.use(express.json());
+
+// Générateur d'ID unique simple
+function generateId(length = 8) {
+  return crypto.randomBytes(length).toString('hex').slice(0, length);
+}
 
 // Créer le dossier 'notes' s’il n’existe pas
 if (!fs.existsSync(NOTES_DIR)) {
@@ -19,7 +24,7 @@ app.post('/notes', (req, res) => {
   const { content } = req.body;
   if (!content) return res.status(400).json({ error: 'Contenu requis.' });
 
-  const id = nanoid(8); // identifiant unique court
+  const id = generateId(); // identifiant unique court
   const filePath = path.join(NOTES_DIR, `${id}.txt`);
 
   fs.writeFile(filePath, content, (err) => {

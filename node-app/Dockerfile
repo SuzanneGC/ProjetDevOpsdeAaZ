@@ -1,20 +1,20 @@
 # Utilisez une image Node.js comme base
 FROM node:18-alpine
 
-# Définissez le répertoire de travail dans le conteneur
-WORKDIR /app
+# Définir le répertoire de travail dans le conteneur
+WORKDIR /node-app
 
-# Copiez les fichiers package.json et package-lock.json (si vous l'avez)
+# Copier le fichier package.json et package-lock.json
 COPY package*.json ./
 
-# Installez les dépendances Node.js
+# Installer les dépendances
 RUN npm install
 
-# Copiez le reste du code de l'application
-COPY index.js .
+# Copier tous les fichiers du projet dans le conteneur
+COPY . .
 
-# Exposez le port sur lequel l'application Node.js écoute
+# Exposer le port 3000 pour pouvoir accéder à l'application
 EXPOSE 3000
 
-# Commande à exécuter lorsque le conteneur démarre
-CMD ["node", "app.js"]
+# Spécifier le fichier d'entrée pour l'application (index.js ici)
+CMD ["node", "index.js"]

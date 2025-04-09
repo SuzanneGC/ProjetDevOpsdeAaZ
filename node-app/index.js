@@ -24,29 +24,97 @@ app.get('/', (req, res) => {
 
 // Création de note depuis le formulaire
 app.post('/notes', (req, res) => {
-  const { content } = req.body;
+  const { content, expiration } = req.body;
   if (!content) return res.status(400).send('Contenu requis.');
 
-  const id = crypto.randomBytes(8).toString('hex').slice(0, 8);
+  const id = crypto.randomBytes(8).toString('hex').slice(0, 8); // Identifiant unique via crypto
   const filePath = path.join(NOTES_DIR, `${id}.txt`);
+  const metaFilePath = path.join(NOTES_DIR, `${id}.meta`);
 
+  // Si l'expiration n'est pas fournie, par défaut on met 24h
+  const expirationTimeInMs = expiration ? expiration * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
+
+  const createdAt = new Date().toISOString();
+  const expirationTime = new Date(new Date().getTime() + expirationTimeInMs);
+
+  // Créer le fichier de la note
   fs.writeFile(filePath, content, (err) => {
     if (err) return res.status(500).send('Erreur lors de la sauvegarde.');
-    res.redirect(`/notes/${id}`);
+
+    // Créer le fichier .meta avec les informations de date de création et d'expiration
+    const metaData = { createdAt, expirationTime };
+    fs.writeFile(metaFilePath, JSON.stringify(metaData), (err) => {
+      if (err) return res.status(500).send('Erreur lors de la sauvegarde du fichier .meta.');
+
+      res.redirect(`/notes/${id}`);
+    });
   });
 });
 
 // Lecture de note en HTML
 app.get('/notes/:id', (req, res) => {
   const filePath = path.join(NOTES_DIR, `${req.params.id}.txt`);
+  const metaFilePath = path.join(NOTES_DIR, `${req.params.id}.meta`);
 
-  fs.readFile(filePath, 'utf8', (err, data) => {
+  // Lire le fichier .meta pour vérifier la date d'expiration
+  fs.readFile(metaFilePath, 'utf8', (err, metaData) => {
     if (err) return res.status(404).send('Note non trouvée.');
 
-    res.render('note', { id: req.params.id, content: data });
+    const { expirationTime } = JSON.parse(metaData);
+
+    // Vérifier si la note a expiré
+    if (new Date() > new Date(expirationTime)) {
+      // Si la note a expiré, la supprimer
+      fs.unlink(filePath, (err) => { if (err) console.log(err); });
+      fs.unlink(metaFilePath, (err) => { if (err) console.log(err); });
+
+      return res.status(404).send('La note a expiré.');
+    }
+
+    // Lire le contenu de la note si elle n'est pas expirée
+    fs.readFile(filePath, 'utf8', (err, data) => {
+      if (err) return res.status(404).send('Note non trouvée.');
+
+      res.render('note', { id: req.params.id, content: data });
+    });
   });
 });
 
 app.listen(PORT, () => {
   console.log(`✅ Serveur dispo sur http://localhost:${PORT}`);
 });
+
+
+
+// Tâche en arrière-plan pour purger les notes expirées
+setInterval(() => {
+    fs.readdir(NOTES_DIR, (err, files) => {
+      if (err) return console.error('Erreur lors de la lecture du répertoire des notes', err);
+  
+      files.forEach((file) => {
+        if (file.endsWith('.meta')) {
+          const metaFilePath = path.join(NOTES_DIR, file);
+          
+          // Lire le fichier .meta
+          fs.readFile(metaFilePath, 'utf8', (err, metaData) => {
+            if (err) return console.error(`Erreur lors de la lecture du fichier .meta ${file}`, err);
+  
+            const { expirationTime } = JSON.parse(metaData);
+            
+            // Vérifier si la note est expirée
+            if (new Date() > new Date(expirationTime)) {
+              const noteId = file.replace('.meta', '');
+              const noteFilePath = path.join(NOTES_DIR, `${noteId}.txt`);
+  
+              // Supprimer le fichier de la note et le fichier .meta
+              fs.unlink(noteFilePath, (err) => { if (err) console.log(err); });
+              fs.unlink(metaFilePath, (err) => { if (err) console.log(err); });
+  
+              console.log(`Note expirée et supprimée : ${noteId}`);
+            }
+          });
+        }
+      });
+    });
+  }, 60 * 60 * 1000); // Vérifier toutes les heures
+  

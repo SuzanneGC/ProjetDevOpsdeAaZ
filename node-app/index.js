@@ -61,34 +61,6 @@ app.post('/notes', (req, res) => {
     });
   });
 
-
-// app.put('/notes/:id', (req, res) => {
-//   const { content } = req.body;
-//   if (!content) return res.status(400).send('Contenu requis.');
-
-//   const id = req.params.id;
-//   const filePath = path.join(NOTES_DIR, `${id}.txt`);
-//   const metaFilePath = path.join(NOTES_DIR, `${id}.meta`);
-
-//   fs.readFile(metaFilePath, 'utf8', (err, metaDataRaw) => {
-//     if (err) return res.status(404).send('Note non trouvée.');
-
-//     const metaData = JSON.parse(metaDataRaw);
-
-//     if (!metaData.editable) {
-//       return res.status(403).send('Cette note n’est pas modifiable.');
-//     }
-
-//     // Écriture si autorisé
-//     fs.writeFile(filePath, content, (err) => {
-//       if (err) return res.status(500).send('Erreur lors de la mise à jour.');
-//       res.send('Note mise à jour avec succès ✅');
-//     });
-//   });
-// });
-
-
-
 // Lecture de note en HTML
 app.get('/notes/:id', (req, res) => {
   const id = req.params.id;
@@ -119,33 +91,6 @@ app.get('/notes/:id', (req, res) => {
   });
 });
 
-
-
-
-// app.put('/notes/:id', (req, res) => {
-//   const { content } = req.body;
-//   if (!content) return res.status(400).send('Contenu requis.');
-
-//   const id = req.params.id;
-//   const filePath = path.join(NOTES_DIR, `${id}.txt`);
-//   const metaFilePath = path.join(NOTES_DIR, `${id}.meta`);
-
-//   fs.readFile(metaFilePath, 'utf8', (err, metaDataRaw) => {
-//     if (err) return res.status(404).send('Note non trouvée.');
-
-//     const metaData = JSON.parse(metaDataRaw);
-
-//     if (!metaData.editable) {
-//       return res.status(403).send('Cette note n’est pas modifiable.');
-//     }
-
-//     // Écriture si autorisé
-//     fs.writeFile(filePath, content, (err) => {
-//       if (err) return res.status(500).send('Erreur lors de la mise à jour.');
-//       res.send('Note mise à jour avec succès ✅');
-//     });
-//   });
-// });
 
 // Mise à jour d'une note existante
 app.put('/notes/:id', (req, res) => {

@@ -17,6 +17,8 @@ app.use(express.json());
 
 app.use(methodOverride('_method'));
 
+app.use(express.static(path.join(__dirname, 'public')));
+
 if (!fs.existsSync(NOTES_DIR)) {
   fs.mkdirSync(NOTES_DIR);
 }

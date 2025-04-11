@@ -24,7 +24,7 @@ app.get('/', (req, res) => {
 
 // Création de note depuis le formulaire
 app.post('/notes', (req, res) => {
-    const { content, expiration } = req.body;  // expiration est en heures
+    const { content, expiration, editable } = req.body;  // expiration est en heures
     if (!content) return res.status(400).send('Contenu requis.');
   
     const id = crypto.randomBytes(8).toString('hex').slice(0, 8); // Identifiant unique via crypto
@@ -46,7 +46,7 @@ app.post('/notes', (req, res) => {
       if (err) return res.status(500).send('Erreur lors de la sauvegarde.');
   
       // Créer le fichier .meta avec les informations de date de création et d'expiration
-      const metaData = { createdAt, expirationTime };
+      const metaData = { createdAt, expirationTime,editable: editable === 'true'};
       fs.writeFile(metaFilePath, JSON.stringify(metaData), (err) => {
         if (err) return res.status(500).send('Erreur lors de la sauvegarde du fichier .meta.');
   

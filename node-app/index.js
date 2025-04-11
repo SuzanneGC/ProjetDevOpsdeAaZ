@@ -2,6 +2,8 @@ const express = require('express');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const methodOverride = require('method-override');
+
 
 const app = express();
 const PORT = 3000;
@@ -12,6 +14,8 @@ app.set('views', path.join(__dirname, 'views'));
 
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
+
+app.use(methodOverride('_method'));
 
 if (!fs.existsSync(NOTES_DIR)) {
   fs.mkdirSync(NOTES_DIR);
@@ -32,7 +36,7 @@ app.post('/notes', (req, res) => {
     const metaFilePath = path.join(NOTES_DIR, `${id}.meta`);
   
     // Si l'expiration n'est pas fournie, par défaut on met 24h (en millisecondes)
-    const expirationTimeInMs = expiration ? expiration * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
+    let expirationTimeInMs = expiration ? expiration * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
   
     if (expiration && expiration > 24) {
         expirationTimeInMs = 24 * 60 * 60 * 1000;
@@ -55,34 +59,120 @@ app.post('/notes', (req, res) => {
     });
   });
 
+
+// app.put('/notes/:id', (req, res) => {
+//   const { content } = req.body;
+//   if (!content) return res.status(400).send('Contenu requis.');
+
+//   const id = req.params.id;
+//   const filePath = path.join(NOTES_DIR, `${id}.txt`);
+//   const metaFilePath = path.join(NOTES_DIR, `${id}.meta`);
+
+//   fs.readFile(metaFilePath, 'utf8', (err, metaDataRaw) => {
+//     if (err) return res.status(404).send('Note non trouvée.');
+
+//     const metaData = JSON.parse(metaDataRaw);
+
+//     if (!metaData.editable) {
+//       return res.status(403).send('Cette note n’est pas modifiable.');
+//     }
+
+//     // Écriture si autorisé
+//     fs.writeFile(filePath, content, (err) => {
+//       if (err) return res.status(500).send('Erreur lors de la mise à jour.');
+//       res.send('Note mise à jour avec succès ✅');
+//     });
+//   });
+// });
+
+
+
 // Lecture de note en HTML
 app.get('/notes/:id', (req, res) => {
-  const filePath = path.join(NOTES_DIR, `${req.params.id}.txt`);
-  const metaFilePath = path.join(NOTES_DIR, `${req.params.id}.meta`);
+  const id = req.params.id;
+  const filePath = path.join(NOTES_DIR, `${id}.txt`);
+  const metaFilePath = path.join(NOTES_DIR, `${id}.meta`);
 
-  // Lire le fichier .meta pour vérifier la date d'expiration
-  fs.readFile(metaFilePath, 'utf8', (err, metaData) => {
-    if (err) return res.status(404).send('Note non trouvée.');
+  fs.readFile(metaFilePath, 'utf8', (errMeta, metaRaw) => {
+    if (errMeta) return res.status(404).send('Note non trouvée ou expirée.');
 
-    const { expirationTime } = JSON.parse(metaData);
+    let meta;
+    try {
+      meta = JSON.parse(metaRaw);
+    } catch (e) {
+      return res.status(500).send('Erreur dans le fichier .meta');
+    }
 
-    // Vérifier si la note a expiré
-    if (new Date() > new Date(expirationTime)) {
-      // Si la note a expiré, la supprimer
-      fs.unlink(filePath, (err) => { if (err) console.log(err); });
-      fs.unlink(metaFilePath, (err) => { if (err) console.log(err); });
-
+    const expirationDate = new Date(meta.expirationTime);
+    if (Date.now() > expirationDate.getTime()) {
+      fs.unlink(filePath, () => {});
+      fs.unlink(metaFilePath, () => {});
       return res.status(404).send('La note a expiré.');
     }
 
-    // Lire le contenu de la note si elle n'est pas expirée
-    fs.readFile(filePath, 'utf8', (err, data) => {
-      if (err) return res.status(404).send('Note non trouvée.');
-
-      res.render('note', { id: req.params.id, content: data });
+    fs.readFile(filePath, 'utf8', (errNote, data) => {
+      if (errNote) return res.status(404).send('Note non trouvée.');
+      res.render('note', { id, content: data, editable: meta.editable });
     });
   });
 });
+
+
+
+
+// app.put('/notes/:id', (req, res) => {
+//   const { content } = req.body;
+//   if (!content) return res.status(400).send('Contenu requis.');
+
+//   const id = req.params.id;
+//   const filePath = path.join(NOTES_DIR, `${id}.txt`);
+//   const metaFilePath = path.join(NOTES_DIR, `${id}.meta`);
+
+//   fs.readFile(metaFilePath, 'utf8', (err, metaDataRaw) => {
+//     if (err) return res.status(404).send('Note non trouvée.');
+
+//     const metaData = JSON.parse(metaDataRaw);
+
+//     if (!metaData.editable) {
+//       return res.status(403).send('Cette note n’est pas modifiable.');
+//     }
+
+//     // Écriture si autorisé
+//     fs.writeFile(filePath, content, (err) => {
+//       if (err) return res.status(500).send('Erreur lors de la mise à jour.');
+//       res.send('Note mise à jour avec succès ✅');
+//     });
+//   });
+// });
+
+// Mise à jour d'une note existante
+app.put('/notes/:id', (req, res) => {
+  const { content } = req.body;
+  if (!content) return res.status(400).send('Contenu requis.');
+
+  const id = req.params.id;
+  const filePath = path.join(NOTES_DIR, `${id}.txt`);
+  const metaFilePath = path.join(NOTES_DIR, `${id}.meta`);
+
+  // Lire le fichier .meta pour vérifier si la note est éditable
+  fs.readFile(metaFilePath, 'utf8', (err, metaDataRaw) => {
+    if (err) return res.status(404).send('Note non trouvée.');
+
+    const metaData = JSON.parse(metaDataRaw);
+
+    if (!metaData.editable) {
+      return res.status(403).send('Cette note n’est pas modifiable.');
+    }
+
+    // Si la note est éditable, on met à jour le fichier
+    fs.writeFile(filePath, content, (err) => {
+      if (err) return res.status(500).send('Erreur lors de la mise à jour.');
+      res.send('Note mise à jour avec succès ✅');
+    });
+  });
+});
+
+
 
 app.listen(PORT, () => {
   console.log(`✅ Serveur dispo sur http://localhost:${PORT}`);
